@@ -1,0 +1,16 @@
+[package]
+name = "croolr"
+version = "0.1.0"
+authors = ["LukasK <ilja.kuklic@centrum.cz>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+warp = "0.3"
+reqwest = "0.11"
+url = "2"
+escaper = "0.1"
+structopt = "0.3.21"
+serde = "1.0.125"
