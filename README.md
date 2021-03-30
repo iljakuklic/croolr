@@ -18,7 +18,6 @@ A simple Rust web crawler. An experiment in asynchronous programming in Rust.
 
 ### TODO
 
-* Major bug: domains should not be case sensitive
 * Reuse HTTP connections
 * Use higher-level concurrency abstractions (e.g. `tower` Service)
 * Split up the big `Crawler` process/task

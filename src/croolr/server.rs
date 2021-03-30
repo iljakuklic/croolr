@@ -1,6 +1,7 @@
 //! The top-level serever.
 
 use super::crawler::Crawler;
+use super::urlinfo::Domain;
 
 use std::net::IpAddr;
 use std::convert::Infallible;
@@ -13,16 +14,16 @@ type JsonReply = Result<warp::reply::Json, warp::reject::Rejection>;
 pub async fn start(ip: IpAddr, port: u16, fetch_limit: u32) {
     let crawler = Crawler::spawn(fetch_limit);
 
-    let crawl = warp::path!("crawl" / String)
+    let crawl = warp::path!("crawl" / Domain)
         .and(with_cloned(&crawler))
         .and_then(handle_crawl);
 
-    let count = warp::path!("count" / String)
+    let count = warp::path!("count" / Domain)
         .and(with_cloned(&crawler))
         .and_then(handle_count);
 
     let urls =
-        warp::path!("urls" / String)
+        warp::path!("urls" / Domain)
         .and(with_cloned(&crawler))
         .and_then(handle_urls);
 
@@ -34,21 +35,21 @@ pub async fn start(ip: IpAddr, port: u16, fetch_limit: u32) {
 }
 
 /// Handle the /crawl/domain.com entry point.
-async fn handle_crawl(domain: String, crawler: Crawler) -> JsonReply {
+async fn handle_crawl(domain: Domain, crawler: Crawler) -> JsonReply {
     let status = format!("{:?}", crawler.crawl(domain).await);
     let reply: HashMap<_, _> = [("status", &status)].iter().cloned().collect();
     Ok(warp::reply::json(&reply))
 }
 
 /// Handle the /count/domain.com entry point.
-async fn handle_count(domain: String, crawler: Crawler) -> JsonReply {
+async fn handle_count(domain: Domain, crawler: Crawler) -> JsonReply {
     let num = &crawler.count_urls(domain).await;
     let reply: HashMap<_, _> = [("count", &num)].iter().cloned().collect();
     Ok(warp::reply::json(&reply))
 }
 
 /// Handle the /urls/domain.com entry point.
-async fn handle_urls(domain: String, crawler: Crawler) -> JsonReply {
+async fn handle_urls(domain: Domain, crawler: Crawler) -> JsonReply {
     let urls : Vec<String> = crawler.list_urls(domain).await
         .unwrap_or(HashSet::new()).into_iter().map(|x| x.to_string()).collect();
     let reply: HashMap<_, _> = [("urls", &urls)].iter().cloned().collect();

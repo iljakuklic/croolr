@@ -38,11 +38,11 @@ enum Message {
     /// Notify that a web page has been processed with given result.
     Processed(Url, UrlInfo),
     /// Crawl given domain.
-    Crawl(String, oneshot::Sender<CrawlReply>),
+    Crawl(Domain, oneshot::Sender<CrawlReply>),
     /// Get urls for given domain.
-    ListUrls(String, oneshot::Sender<ListUrlsReply>),
+    ListUrls(Domain, oneshot::Sender<ListUrlsReply>),
     /// Get the number of urls for given domain.
-    CountUrls(String, oneshot::Sender<CountUrlsReply>),
+    CountUrls(Domain, oneshot::Sender<CountUrlsReply>),
 }
 
 // Crawler agent implementation.
@@ -62,24 +62,24 @@ impl Crawler {
     }
 
     /// Instruct the crawler to crawl given domain.
-    pub async fn crawl(&self, domain: String) -> CrawlReply {
+    pub async fn crawl(&self, domain: Domain) -> CrawlReply {
         self.send_and_wait_reply(|r| Message::Crawl(domain, r)).await
     }
 
     /// Instruct the crawler to send a list of URLs for given domain.
-    pub async fn list_urls(&self, domain: String) -> ListUrlsReply {
+    pub async fn list_urls(&self, domain: Domain) -> ListUrlsReply {
         self.send_and_wait_reply(|r| Message::ListUrls(domain, r)).await
     }
 
     /// Instruct the crawler to send a list of URLs for given domain.
-    pub async fn count_urls(&self, domain: String) -> CountUrlsReply {
+    pub async fn count_urls(&self, domain: Domain) -> CountUrlsReply {
         self.send_and_wait_reply(|r| Message::CountUrls(domain, r)).await
     }
 
     /// Main crawler message handling loop.
     async fn run(self, mut rx: mpsc::Receiver<Message>, mut fetch_limit: u32) {
         let mut seen: HashSet<Url> = HashSet::new();
-        let mut data: HashMap<String, UrlSet> = HashMap::new();
+        let mut data: HashMap<Domain, UrlSet> = HashMap::new();
         let mut fetch_queue = Vec::new();
 
         while let Some(msg) = rx.recv().await {
@@ -97,7 +97,7 @@ impl Crawler {
             },
             Message::Processed(url, _info) => {
                 if let Some(host) = url.host_str() {
-                    let domain_data = data.entry(host.to_string()).or_default();
+                    let domain_data = data.entry(Domain::new(host)).or_default();
                     domain_data.insert(url);
                 }
                 match fetch_queue.pop() {
@@ -180,7 +180,7 @@ mod test {
         let crawler = Crawler::spawn(8);
         let url = Url::parse("http://example.com/foo.png").unwrap();
         crawler.send(Message::Processed(url.clone(), Ok(()))).await;
-        let ret = crawler.list_urls("example.com".to_string()).await
+        let ret = crawler.list_urls(Domain::new("example.com")).await
             .expect("domain not present");
         assert!(ret.len() == 1, "Too many URLs present");
         assert!(ret.contains(&url));
