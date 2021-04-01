@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 use std::str::FromStr;
+use url::Host;
 
 #[derive(Debug)]
 pub enum CroolrError {
@@ -19,24 +20,21 @@ pub type UrlSet = HashSet<url::Url>;
 pub struct Domain(String);
 
 impl Domain {
-    /// Construct a new domain, forcing it to be lowercase.
-    pub fn new(d: &str) -> Self {
-        Domain(d.to_lowercase())
+    pub fn from_host<S: AsRef<str>>(h: &Host<S>) -> Self {
+        Domain(h.to_string())
     }
 }
 
 impl FromStr for Domain {
-    type Err = std::convert::Infallible;
+    type Err = url::ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Domain::new(s))
+        url::Host::parse(s).map(|h| Self::from_host(&h))
     }
 }
 
 impl std::ops::Deref for Domain {
     type Target = str;
-    fn deref(&self) -> &str {
-        self.0.deref()
-    }
+    fn deref(&self) -> &str { self.0.deref() }
 }
 
 #[cfg(test)]
@@ -46,7 +44,7 @@ mod test {
 
     #[test]
     fn unit_domain_case_insensitive() {
-        assert!(Domain::new("eXamPle.coM") == Domain::new("ExamPle.Com"))
+        assert!(Domain::from_str("eXamPle.coM") == "ExamPle.Com".parse())
     }
 
 }

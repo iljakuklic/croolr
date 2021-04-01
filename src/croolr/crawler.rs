@@ -96,8 +96,8 @@ impl Crawler {
                 }
             },
             Message::Processed(url, _info) => {
-                if let Some(host) = url.host_str() {
-                    let domain_data = data.entry(Domain::new(host)).or_default();
+                if let Some(host) = url.host() {
+                    let domain_data = data.entry(Domain::from_host(&host)).or_default();
                     domain_data.insert(url);
                 }
                 match fetch_queue.pop() {
@@ -180,7 +180,7 @@ mod test {
         let crawler = Crawler::spawn(8);
         let url = Url::parse("http://example.com/foo.png").unwrap();
         crawler.send(Message::Processed(url.clone(), Ok(()))).await;
-        let ret = crawler.list_urls(Domain::new("example.com")).await
+        let ret = crawler.list_urls("example.com".parse().unwrap()).await
             .expect("domain not present");
         assert!(ret.len() == 1, "Too many URLs present");
         assert!(ret.contains(&url));
