@@ -1,11 +1,11 @@
 //! The main crawler module.
 
-use super::urlinfo::*;
 use super::fetch;
+use super::urlinfo::*;
 
+use std::collections::{HashMap, HashSet};
+use tokio::sync::{mpsc, oneshot};
 use url::Url;
-use tokio::sync::{oneshot, mpsc};
-use std::collections::{HashSet, HashMap};
 
 /// A handle to the crawler process. Used to send messages to it.
 #[derive(Clone)]
@@ -47,7 +47,6 @@ enum Message {
 
 // Crawler agent implementation.
 impl Crawler {
-
     /// Start a new crawler.
     ///
     /// The fetch_limit argument specifies max number of concurrent http downloads.
@@ -56,24 +55,27 @@ impl Crawler {
     pub fn spawn(fetch_limit: u32) -> Crawler {
         assert!(fetch_limit >= 1, "Fetch limit must be at least 1");
         let (sx, rx) = mpsc::channel(32);
-        let crawler = Crawler {channel: sx};
+        let crawler = Crawler { channel: sx };
         tokio::task::spawn(crawler.clone().run(rx, fetch_limit));
         crawler
     }
 
     /// Instruct the crawler to crawl given domain.
     pub async fn crawl(&self, domain: Domain) -> CrawlReply {
-        self.send_and_wait_reply(|r| Message::Crawl(domain, r)).await
+        self.send_and_wait_reply(|r| Message::Crawl(domain, r))
+            .await
     }
 
     /// Instruct the crawler to send a list of URLs for given domain.
     pub async fn list_urls(&self, domain: Domain) -> ListUrlsReply {
-        self.send_and_wait_reply(|r| Message::ListUrls(domain, r)).await
+        self.send_and_wait_reply(|r| Message::ListUrls(domain, r))
+            .await
     }
 
     /// Instruct the crawler to send a list of URLs for given domain.
     pub async fn count_urls(&self, domain: Domain) -> CountUrlsReply {
-        self.send_and_wait_reply(|r| Message::CountUrls(domain, r)).await
+        self.send_and_wait_reply(|r| Message::CountUrls(domain, r))
+            .await
     }
 
     /// Main crawler message handling loop.
@@ -84,47 +86,47 @@ impl Crawler {
 
         while let Some(msg) = rx.recv().await {
             match msg {
-            Message::LinkFound(url) => {
-                if !seen.contains(&url) {
-                    seen.insert(url.clone());
-                    if fetch_limit > 0 {
-                        fetch_limit -= 1;
-                        self.fetch(url);
-                    } else {
-                        fetch_queue.push(url);
+                Message::LinkFound(url) => {
+                    if !seen.contains(&url) {
+                        seen.insert(url.clone());
+                        if fetch_limit > 0 {
+                            fetch_limit -= 1;
+                            self.fetch(url);
+                        } else {
+                            fetch_queue.push(url);
+                        }
                     }
                 }
-            },
-            Message::Processed(url, _info) => {
-                if let Some(host) = url.host() {
-                    let domain_data = data.entry(Domain::from_host(&host)).or_default();
-                    domain_data.insert(url);
-                }
-                match fetch_queue.pop() {
-                    Some(next_url) => self.fetch(next_url),
-                    None => fetch_limit += 1,
-                }
-            },
-            Message::ListUrls(host, reply) => {
-                reply.send(data.get(&host).cloned()).unwrap();
-            },
-            Message::CountUrls(host, reply) => {
-                reply.send(data.get(&host).map(|x| x.len())).unwrap();
-            },
-            Message::Crawl(host, reply) => {
-                let ret = match url_from_host(&host) {
-                Ok(url) => {
-                    if seen.contains(&url) {
-                        CrawlReply::AlreadyCrawling
-                    } else {
-                        self.send(Message::LinkFound(url)).await;
-                        CrawlReply::Queued
+                Message::Processed(url, _info) => {
+                    if let Some(host) = url.host() {
+                        let domain_data = data.entry(Domain::from_host(&host)).or_default();
+                        domain_data.insert(url);
                     }
-                },
-                Err(err) => CrawlReply::MalformedHostName(err)
-                };
-                let _ = reply.send(ret);
-            },
+                    match fetch_queue.pop() {
+                        Some(next_url) => self.fetch(next_url),
+                        None => fetch_limit += 1,
+                    }
+                }
+                Message::ListUrls(host, reply) => {
+                    reply.send(data.get(&host).cloned()).unwrap();
+                }
+                Message::CountUrls(host, reply) => {
+                    reply.send(data.get(&host).map(|x| x.len())).unwrap();
+                }
+                Message::Crawl(host, reply) => {
+                    let ret = match url_from_host(&host) {
+                        Ok(url) => {
+                            if seen.contains(&url) {
+                                CrawlReply::AlreadyCrawling
+                            } else {
+                                self.send(Message::LinkFound(url)).await;
+                                CrawlReply::Queued
+                            }
+                        }
+                        Err(err) => CrawlReply::MalformedHostName(err),
+                    };
+                    let _ = reply.send(ret);
+                }
             }
         }
     }
@@ -155,13 +157,14 @@ impl Crawler {
     }
 
     /// Send a message to the crawler and wait for reply.
-    async fn send_and_wait_reply<F, R>(&self, msg_func: F) -> R 
-    where F: FnOnce(oneshot::Sender<R>) -> Message {
+    async fn send_and_wait_reply<F, R>(&self, msg_func: F) -> R
+    where
+        F: FnOnce(oneshot::Sender<R>) -> Message,
+    {
         let (sx, rx) = oneshot::channel();
         self.send(msg_func(sx)).await;
         rx.await.unwrap()
     }
-
 }
 
 fn url_from_host(host: &str) -> Result<Url, url::ParseError> {
@@ -180,10 +183,11 @@ mod test {
         let crawler = Crawler::spawn(8);
         let url = Url::parse("http://example.com/foo.png").unwrap();
         crawler.send(Message::Processed(url.clone(), Ok(()))).await;
-        let ret = crawler.list_urls("example.com".parse().unwrap()).await
+        let ret = crawler
+            .list_urls("example.com".parse().unwrap())
+            .await
             .expect("domain not present");
         assert!(ret.len() == 1, "Too many URLs present");
         assert!(ret.contains(&url));
     }
-
 }

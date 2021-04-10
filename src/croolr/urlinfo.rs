@@ -1,5 +1,4 @@
 ///! Data structures that hold information about URLs.
-
 use std::collections::HashSet;
 use std::str::FromStr;
 use url::Host;
@@ -16,7 +15,7 @@ pub type UrlInfo = Result<(), CroolrError>;
 pub type UrlSet = HashSet<url::Url>;
 
 /// Domain name, enforced to be lower case.
-#[derive(Debug,Clone,PartialEq,Eq,PartialOrd,Ord,Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Domain(String);
 
 impl Domain {
@@ -34,7 +33,9 @@ impl FromStr for Domain {
 
 impl std::ops::Deref for Domain {
     type Target = str;
-    fn deref(&self) -> &str { self.0.deref() }
+    fn deref(&self) -> &str {
+        self.0.deref()
+    }
 }
 
 #[cfg(test)]
@@ -46,5 +47,4 @@ mod test {
     fn unit_domain_case_insensitive() {
         assert!(Domain::from_str("eXamPle.coM") == "ExamPle.Com".parse())
     }
-
 }

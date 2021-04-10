@@ -3,9 +3,9 @@
 use super::crawler::Crawler;
 use super::urlinfo::Domain;
 
-use std::net::IpAddr;
+use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
-use std::collections::{HashSet, HashMap};
+use std::net::IpAddr;
 use warp::Filter;
 
 type JsonReply = Result<warp::reply::Json, warp::reject::Rejection>;
@@ -22,8 +22,7 @@ pub async fn start(ip: IpAddr, port: u16, fetch_limit: u32) {
         .and(with_cloned(&crawler))
         .and_then(handle_count);
 
-    let urls =
-        warp::path!("urls" / Domain)
+    let urls = warp::path!("urls" / Domain)
         .and(with_cloned(&crawler))
         .and_then(handle_urls);
 
@@ -50,15 +49,21 @@ async fn handle_count(domain: Domain, crawler: Crawler) -> JsonReply {
 
 /// Handle the /urls/domain.com entry point.
 async fn handle_urls(domain: Domain, crawler: Crawler) -> JsonReply {
-    let urls : Vec<String> = crawler.list_urls(domain).await
-        .unwrap_or(HashSet::new()).into_iter().map(|x| x.to_string()).collect();
+    let urls: Vec<String> = crawler
+        .list_urls(domain)
+        .await
+        .unwrap_or(HashSet::new())
+        .into_iter()
+        .map(|x| x.to_string())
+        .collect();
     let reply: HashMap<_, _> = [("urls", &urls)].iter().cloned().collect();
     Ok(warp::reply::json(&reply))
 }
 
 /// Warp filter to pass constant data to handlers by cloning them each time.
-fn with_cloned<T: Clone + Send>(x: &T)
-        -> impl warp::Filter<Extract=(T,), Error=Infallible> + Clone {
+fn with_cloned<T: Clone + Send>(
+    x: &T,
+) -> impl warp::Filter<Extract = (T,), Error = Infallible> + Clone {
     let x = x.clone();
     warp::any().map(move || x.clone())
 }
