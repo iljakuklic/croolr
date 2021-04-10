@@ -21,4 +21,7 @@ A simple Rust web crawler. An experiment in asynchronous programming in Rust.
 * Reuse HTTP connections
 * Use higher-level concurrency abstractions (e.g. `tower` Service)
 * Split up the big `Crawler` process/task
+  * Split the crawling and data storage functionality
+  * Implement HTTP fetch rate limiting as a middleware layer
+  * Data storage could be sharded to improve throughput
 * Testing with `loom`
