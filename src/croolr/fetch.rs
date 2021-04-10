@@ -30,7 +30,7 @@ pub fn spawn<F, G>(
 }
 
 /// Find URLs in given html document. Just quick & dirty string matching for now.
-fn extract_urls<'a>(source: &'a str) -> impl Iterator<Item = String> + 'a {
+fn extract_urls(source: &'_ str) -> impl Iterator<Item = String> + '_ {
     source.split("href=").filter_map(|s| {
         let q = s.chars().next()?;
         let s = s.strip_prefix(&['\"', '\''][..])?;
@@ -67,7 +67,7 @@ async fn fetch_url(client: &reqwest::Client, url: &Url) -> Result<String, Croolr
     let content_type = resp
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
-        .ok_or(unsupported_type("unknown"))?
+        .ok_or_else(|| unsupported_type("unknown"))?
         .to_str()
         .map_err(|_| unsupported_type("unparsable"))?;
     if !content_type.contains("html") {

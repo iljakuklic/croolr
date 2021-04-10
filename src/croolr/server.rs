@@ -3,7 +3,7 @@
 use super::crawler::Crawler;
 use super::urlinfo::Domain;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::IpAddr;
 use warp::Filter;
@@ -26,7 +26,7 @@ pub async fn start(ip: IpAddr, port: u16, fetch_limit: u32) {
         .and(with_cloned(&crawler))
         .and_then(handle_urls);
 
-    let front = warp::path::end().map(|| format!("Nothing to see here"));
+    let front = warp::path::end().map(|| "Nothing to see here");
 
     let api = front.or(crawl).or(urls).or(count);
 
@@ -52,7 +52,7 @@ async fn handle_urls(domain: Domain, crawler: Crawler) -> JsonReply {
     let urls: Vec<String> = crawler
         .list_urls(domain)
         .await
-        .unwrap_or(HashSet::new())
+        .unwrap_or_default()
         .into_iter()
         .map(|x| x.to_string())
         .collect();
