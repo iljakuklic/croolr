@@ -45,6 +45,10 @@ fn follow_link(base: &Url, path: &str) -> Option<Url> {
     base.join(&path)
         .ok()
         .filter(|l| l.host() == base.host() && ["http", "https"].contains(&l.scheme()))
+        .map(|mut u| {
+            u.set_fragment(None);
+            u
+        })
 }
 
 /// Fetch given URL and return its text if successful and all additional
@@ -119,6 +123,24 @@ mod test {
         );
         assert!(follow_link(&base, "http://nothing.io").is_none());
         assert!(follow_link(&base, "ftp://example.com/here").is_none());
+    }
+
+    #[test]
+    fn unit_follow_link_drop_fragment() {
+        let base = Url::parse("http://example.com/xyz/").unwrap();
+        assert_eq!(follow_link(&base, "#A"), Some(base.clone()));
+        assert_eq!(
+            follow_link(&base, "http://example.com/xyz/#B"),
+            Some(base.clone())
+        );
+        assert_eq!(
+            follow_link(&base, "/foo.html#C"),
+            Url::parse("http://example.com/foo.html").ok()
+        );
+        assert_eq!(
+            follow_link(&base, "foo.html#D"),
+            Url::parse("http://example.com/xyz/foo.html").ok()
+        );
     }
 
     // A number of absolute and relative URLs (and other strings) for testing.
