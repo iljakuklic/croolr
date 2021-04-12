@@ -11,7 +11,7 @@ pub type FetchResult = Result<(), CroolrError>;
 /// Spawn a new task to fetch given URL.
 ///
 /// To break inter-module dependencies, the fetcher is parametrized by two
-/// callbacks. The link_cb callbakc is invoked whenever a link is encountered
+/// callbacks. The link_cb callback is invoked whenever a link is encountered
 /// in the page body. The finish_cb is invoked as soon as fetching finishes.
 pub fn spawn<F, G>(
     url: Url,
