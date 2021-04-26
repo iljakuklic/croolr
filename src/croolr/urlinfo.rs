@@ -5,13 +5,13 @@ use std::str::FromStr;
 use url::Host;
 
 #[derive(Debug, Clone)]
-pub enum CroolrError {
+pub enum Error {
     Fetch(String),
     Status(reqwest::StatusCode),
     UnsupportedType(String),
 }
 
-pub type FetchResult = Result<reqwest::StatusCode, CroolrError>;
+pub type FetchResult = Result<reqwest::StatusCode, Error>;
 
 /// Stores metadata about an URL.
 #[derive(Debug, Clone)]
@@ -24,13 +24,13 @@ impl Serialize for UrlInfo {
     {
         match &self.0 {
             Ok(status) => s.serialize_newtype_variant("urlinfo", 0, "ok", &status.to_string()),
-            Err(CroolrError::Fetch(e)) => {
+            Err(Error::Fetch(e)) => {
                 s.serialize_newtype_variant("urlinfo", 1, "fetch_error", e)
             }
-            Err(CroolrError::Status(e)) => {
+            Err(Error::Status(e)) => {
                 s.serialize_newtype_variant("urlinfo", 2, "response_error", &e.to_string())
             }
-            Err(CroolrError::UnsupportedType(e)) => {
+            Err(Error::UnsupportedType(e)) => {
                 s.serialize_newtype_variant("urlinfo", 3, "unsupported_mime", e)
             }
         }

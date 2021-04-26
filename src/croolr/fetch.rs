@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::future::Future;
 use url::Url;
 
-pub type FetchResult = Result<reqwest::StatusCode, CroolrError>;
+pub type FetchResult = Result<reqwest::StatusCode, Error>;
 
 /// Spawn a new task to fetch given URL.
 ///
@@ -56,21 +56,21 @@ fn follow_link(base: &Url, path: &str) -> Option<Url> {
 async fn fetch_url(
     client: &reqwest::Client,
     url: &Url,
-) -> Result<(reqwest::StatusCode, String), CroolrError> {
+) -> Result<(reqwest::StatusCode, String), Error> {
     let resp = client
         .get(url.clone())
         .send()
         .await
-        .map_err(|e| CroolrError::Fetch(e.to_string()))?;
+        .map_err(|e| Error::Fetch(e.to_string()))?;
 
     // Check response status.
     let status = resp.status();
     if !status.is_success() {
-        return Err(CroolrError::Status(status));
+        return Err(Error::Status(status));
     }
 
     // Check content type is html before proceeding.
-    let unsupported_type = |t: &str| CroolrError::UnsupportedType(t.to_string());
+    let unsupported_type = |t: &str| Error::UnsupportedType(t.to_string());
     let content_type = resp
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
@@ -85,7 +85,7 @@ async fn fetch_url(
     let text = resp
         .text()
         .await
-        .map_err(|e| CroolrError::Fetch(e.to_string()))?;
+        .map_err(|e| Error::Fetch(e.to_string()))?;
     Ok((status, text))
 }
 
