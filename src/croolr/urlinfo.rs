@@ -1,18 +1,43 @@
+use serde::ser::Serialize;
 ///! Data structures that hold information about URLs.
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::str::FromStr;
 use url::Host;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CroolrError {
-    Fetch(reqwest::Error),
+    Fetch(String),
     Status(reqwest::StatusCode),
     UnsupportedType(String),
 }
 
-pub type UrlInfo = Result<(), CroolrError>;
+pub type FetchResult = Result<reqwest::StatusCode, CroolrError>;
 
-pub type UrlSet = HashSet<url::Url>;
+/// Stores metadata about an URL.
+#[derive(Debug, Clone)]
+pub struct UrlInfo(pub FetchResult);
+
+impl Serialize for UrlInfo {
+    fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match &self.0 {
+            Ok(status) => s.serialize_newtype_variant("urlinfo", 0, "ok", &status.to_string()),
+            Err(CroolrError::Fetch(e)) => {
+                s.serialize_newtype_variant("urlinfo", 1, "fetch_error", e)
+            }
+            Err(CroolrError::Status(e)) => {
+                s.serialize_newtype_variant("urlinfo", 2, "response_error", &e.to_string())
+            }
+            Err(CroolrError::UnsupportedType(e)) => {
+                s.serialize_newtype_variant("urlinfo", 3, "unsupported_mime", e)
+            }
+        }
+    }
+}
+
+pub type UrlSet = HashMap<url::Url, UrlInfo>;
 
 /// Domain name, enforced to be lower case.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

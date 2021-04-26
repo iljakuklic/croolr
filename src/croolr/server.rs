@@ -1,7 +1,7 @@
 //! The top-level serever.
 
 use super::crawler::Crawler;
-use super::urlinfo::Domain;
+use super::urlinfo::{Domain, UrlInfo};
 
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -49,12 +49,12 @@ async fn handle_count(domain: Domain, crawler: Crawler) -> JsonReply {
 
 /// Handle the /urls/domain.com entry point.
 async fn handle_urls(domain: Domain, crawler: Crawler) -> JsonReply {
-    let urls: Vec<String> = crawler
+    let urls: HashMap<String, UrlInfo> = crawler
         .list_urls(domain)
         .await
         .unwrap_or_default()
         .into_iter()
-        .map(|x| x.to_string())
+        .map(|(url, status)| (url.to_string(), status))
         .collect();
     let reply: HashMap<_, _> = [("urls", &urls)].iter().cloned().collect();
     Ok(warp::reply::json(&reply))

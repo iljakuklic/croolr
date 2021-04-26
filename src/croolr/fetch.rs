@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::future::Future;
 use url::Url;
 
-pub type FetchResult = Result<(), CroolrError>;
+pub type FetchResult = Result<reqwest::StatusCode, CroolrError>;
 
 /// Spawn a new task to fetch given URL.
 ///
@@ -16,7 +16,7 @@ pub type FetchResult = Result<(), CroolrError>;
 pub fn spawn<F, G>(
     url: Url,
     link_cb: impl Fn(&Url) -> G + Send + Sync + 'static,
-    finish_cb: impl FnOnce(FetchResult) -> F + Send + 'static,
+    finish_cb: impl FnOnce(UrlInfo) -> F + Send + 'static,
 ) where
     F: Future + Send,
     F::Output: Send + 'static,
@@ -25,7 +25,7 @@ pub fn spawn<F, G>(
 {
     tokio::task::spawn(async move {
         let r = do_fetch_page(url.clone(), link_cb).await;
-        finish_cb(r).await
+        finish_cb(UrlInfo(r)).await
     });
 }
 
@@ -53,12 +53,15 @@ fn follow_link(base: &Url, path: &str) -> Option<Url> {
 
 /// Fetch given URL and return its text if successful and all additional
 /// conditions have been satisfied.
-async fn fetch_url(client: &reqwest::Client, url: &Url) -> Result<String, CroolrError> {
+async fn fetch_url(
+    client: &reqwest::Client,
+    url: &Url,
+) -> Result<(reqwest::StatusCode, String), CroolrError> {
     let resp = client
         .get(url.clone())
         .send()
         .await
-        .map_err(CroolrError::Fetch)?;
+        .map_err(|e| CroolrError::Fetch(e.to_string()))?;
 
     // Check response status.
     let status = resp.status();
@@ -79,7 +82,11 @@ async fn fetch_url(client: &reqwest::Client, url: &Url) -> Result<String, Croolr
     }
 
     // Extract the page content.
-    resp.text().await.map_err(CroolrError::Fetch)
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| CroolrError::Fetch(e.to_string()))?;
+    Ok((status, text))
 }
 
 /// Fetch given page and extract URLs, calling link_cb on each.
@@ -89,7 +96,7 @@ where
     F::Output: Send + 'static,
 {
     let client = reqwest::Client::new();
-    let body = fetch_url(&client, &url).await?;
+    let (status, body) = fetch_url(&client, &url).await?;
     let mut duplicates = HashSet::new();
     for link in extract_urls(&body).filter_map(|l| follow_link(&url, &l)) {
         if duplicates.contains(&link) {
@@ -98,7 +105,7 @@ where
         link_cb(&link).await;
         duplicates.insert(link);
     }
-    Ok(())
+    Ok(status)
 }
 
 #[cfg(test)]

@@ -97,10 +97,10 @@ impl Crawler {
                         }
                     }
                 }
-                Message::Processed(url, _info) => {
+                Message::Processed(url, info) => {
                     if let Some(host) = url.host() {
                         let domain_data = data.entry(Domain::from_host(&host)).or_default();
-                        domain_data.insert(url);
+                        domain_data.insert(url, info);
                     }
                     match fetch_queue.pop() {
                         Some(next_url) => self.fetch(next_url),
@@ -108,7 +108,8 @@ impl Crawler {
                     }
                 }
                 Message::ListUrls(host, reply) => {
-                    reply.send(data.get(&host).cloned()).unwrap();
+                    let content = data.get(&host).cloned();
+                    reply.send(content).unwrap();
                 }
                 Message::CountUrls(host, reply) => {
                     reply.send(data.get(&host).map(|x| x.len())).unwrap();
@@ -143,9 +144,9 @@ impl Crawler {
         };
 
         let h_finish = self.clone();
-        let url2 = url.clone();
+        let url_finish = url.clone();
         let cb_finish = |r| async move {
-            h_finish.send(Message::Processed(url2, r)).await;
+            h_finish.send(Message::Processed(url_finish, r)).await;
         };
 
         fetch::spawn(url, cb_link, cb_finish);
